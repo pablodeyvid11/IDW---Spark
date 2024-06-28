@@ -12,7 +12,7 @@ public class HarvesineUDFDouble implements UDF4<Double, Double, Double, Double, 
 		if (lon1 == null || lat1 == null || lon2 == null || lat2 == null) {
 			return null;
 		}
-		final int R = 6371; // Radius of the earth
+		final int R = 6371;
 		double latDistance = Math.toRadians(lat2 - lat1);
 		double lonDistance = Math.toRadians(lon2 - lon1);
 		double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2) + Math.cos(Math.toRadians(lat1))

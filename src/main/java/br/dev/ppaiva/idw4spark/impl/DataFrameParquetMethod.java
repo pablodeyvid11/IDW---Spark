@@ -29,29 +29,25 @@ public class DataFrameParquetMethod extends IDWSparkTemplate implements Serializ
 		Dataset<Row> data = spark.read().format("parquet").option("header", "true").option("inferSchema", "true")
                 .load(datasetPath);
 
-        // Registrar a UDF harvesine
         spark.udf().register("harvesine", new HarvesineUDFDouble(), DataTypes.DoubleType);
 
-        // Remover linhas onde longitude ou latitude são nulos
         Dataset<Row> filteredData = data.filter("longitude IS NOT NULL AND latitude IS NOT NULL");
 
-        // Renomear as colunas do DataFrame do ponto desconhecido para evitar ambiguidade
         Dataset<Row> unknownPointDF = spark.createDataFrame(java.util.Collections.singletonList(unknownPoint), Point.class)
                                            .withColumnRenamed("latitude", "unknown_latitude")
                                            .withColumnRenamed("longitude", "unknown_longitude")
                                            .withColumnRenamed("value", "unknown_value");
 
-        // Realizar o cross join
         Dataset<Row> crossJoined = filteredData.crossJoin(unknownPointDF);
 
-        // Calcular a distância e os termos necessários para a interpolação usando métodos DataFrame
+
         Dataset<Row> withDistances = crossJoined.withColumn("distance", callUDF("harvesine", col("longitude").cast(DataTypes.DoubleType),
                 col("latitude").cast(DataTypes.DoubleType), col("unknown_longitude").cast(DataTypes.DoubleType), col("unknown_latitude").cast(DataTypes.DoubleType)));
 
         Dataset<Row> withInverseDistances = withDistances.withColumn("distInt", expr("1 / pow(distance, 2)"))
                 .withColumn("weightedValue", col("distInt").multiply(col("value")));
 
-        // Realizar a agregação para calcular o valor interpolado
+ 
         Dataset<Row> aggregated = withInverseDistances.agg(sum("weightedValue").alias("sumWeightedValues"),
                 sum("distInt").alias("sumInverseDistances"));
 

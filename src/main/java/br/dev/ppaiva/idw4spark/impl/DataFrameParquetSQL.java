@@ -26,16 +26,12 @@ public class DataFrameParquetSQL extends IDWSparkTemplate implements Serializabl
         Dataset<Row> data = spark.read().format("parquet").option("header", "true").option("inferSchema", "true")
                 .load(datasetPath);
 
-        // Registrar a UDF harvesine
         spark.udf().register("harvesine", new HarvesineUDFBigDecimal(), DataTypes.DoubleType);
 
-        // Remover linhas onde longitude ou latitude são nulos
         Dataset<Row> filteredData = data.filter("longitude IS NOT NULL AND latitude IS NOT NULL");
 
-        // Criar uma tabela temporária para os dados
         filteredData.createOrReplaceTempView("data");
 
-        // Calcular a distância e os termos necessários para a interpolação usando SQL
         Dataset<Row> withDistances = spark.sql(
                 "SELECT *, " +
                 "harvesine(CAST(longitude AS DECIMAL(10, 8)), CAST(latitude AS DECIMAL(10, 8)), " + unknownPoint.getLongitude() + ", " + unknownPoint.getLatitude() + ") as distance " +
@@ -53,7 +49,6 @@ public class DataFrameParquetSQL extends IDWSparkTemplate implements Serializabl
 
         withInverseDistances.createOrReplaceTempView("withInverseDistances");
 
-        // Realizar a agregação para calcular o valor interpolado
         Dataset<Row> aggregated = spark.sql(
                 "SELECT " +
                 "SUM(weightedValue) as sumWeightedValues, " +

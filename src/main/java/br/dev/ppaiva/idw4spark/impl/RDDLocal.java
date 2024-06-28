@@ -41,6 +41,7 @@ public class RDDLocal extends IDWSparkTemplate implements Serializable {
             
             
             double valueInterpolated = sumsupTotal / suminf;
+            
             spark.stop();
             return new Point(unknownPoint.getLatitude(), unknownPoint.getLongitude(), valueInterpolated);
         }
