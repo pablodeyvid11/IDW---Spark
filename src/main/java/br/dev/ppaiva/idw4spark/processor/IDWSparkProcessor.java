@@ -85,6 +85,8 @@ public class IDWSparkProcessor implements Serializable {
 			this.spark = new DataFrameParquetMethod(sparkSession, datasetPath);
 			return;
 		}
+		
+		throw new IllegalStateException("SparkConfig is in an unsupported state.");
 	}
 
 	public Point interpolate(Point unknownPoint) {

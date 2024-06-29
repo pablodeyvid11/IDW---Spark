@@ -27,37 +27,38 @@ public class DataFrameCSVMethod extends IDWSparkTemplate implements Serializable
 	@Override
 	protected Point processData(Point unknownPoint) {
 		Dataset<Row> data = spark.read().format("csv").option("header", "true").option("inferSchema", "true")
-                .load(datasetPath);
+				.load(datasetPath);
 
-        spark.udf().register("harvesine", new HarvesineUDFDouble(), DataTypes.DoubleType);
+		spark.udf().register("harvesine", new HarvesineUDFDouble(), DataTypes.DoubleType);
 
-        Dataset<Row> filteredData = data.filter("longitude IS NOT NULL AND latitude IS NOT NULL");
+		Dataset<Row> filteredData = data.filter("longitude IS NOT NULL AND latitude IS NOT NULL");
 
-        Dataset<Row> unknownPointDF = spark.createDataFrame(java.util.Collections.singletonList(unknownPoint), Point.class)
-                                           .withColumnRenamed("latitude", "unknown_latitude")
-                                           .withColumnRenamed("longitude", "unknown_longitude")
-                                           .withColumnRenamed("value", "unknown_value");
+		Dataset<Row> unknownPointDF = spark
+				.createDataFrame(java.util.Collections.singletonList(unknownPoint), Point.class)
+				.withColumnRenamed("latitude", "unknown_latitude").withColumnRenamed("longitude", "unknown_longitude")
+				.withColumnRenamed("value", "unknown_value");
 
-        Dataset<Row> crossJoined = filteredData.crossJoin(unknownPointDF);
+		Dataset<Row> crossJoined = filteredData.crossJoin(unknownPointDF);
 
-        Dataset<Row> withDistances = crossJoined.withColumn("distance", callUDF("harvesine", col("longitude").cast(DataTypes.DoubleType),
-                col("latitude").cast(DataTypes.DoubleType), col("unknown_longitude").cast(DataTypes.DoubleType), col("unknown_latitude").cast(DataTypes.DoubleType)));
+		Dataset<Row> withDistances = crossJoined.withColumn("distance",
+				callUDF("harvesine", col("longitude").cast(DataTypes.DoubleType),
+						col("latitude").cast(DataTypes.DoubleType), col("unknown_longitude").cast(DataTypes.DoubleType),
+						col("unknown_latitude").cast(DataTypes.DoubleType)));
 
-        Dataset<Row> withInverseDistances = withDistances.withColumn("distInt", expr("1 / pow(distance, 2)"))
-                .withColumn("weightedValue", col("distInt").multiply(col("value")));
+		Dataset<Row> withInverseDistances = withDistances.withColumn("distInt", expr("1 / pow(distance, 2)"))
+				.withColumn("weightedValue", col("distInt").multiply(col("value")));
 
-        Dataset<Row> aggregated = withInverseDistances.agg(sum("weightedValue").alias("sumWeightedValues"),
-                sum("distInt").alias("sumInverseDistances"));
+		Dataset<Row> aggregated = withInverseDistances.agg(sum("weightedValue").alias("sumWeightedValues"),
+				sum("distInt").alias("sumInverseDistances"));
 
-        Dataset<Row> interpolated = aggregated
-                .withColumn("latitude", lit(unknownPoint.getLatitude()))
-                .withColumn("longitude", lit(unknownPoint.getLongitude()))
-                .withColumn("interpolated_value", col("sumWeightedValues").divide(col("sumInverseDistances")))
-                .select("latitude", "longitude", "interpolated_value");
+		Dataset<Row> interpolated = aggregated.withColumn("latitude", lit(unknownPoint.getLatitude()))
+				.withColumn("longitude", lit(unknownPoint.getLongitude()))
+				.withColumn("interpolated_value", col("sumWeightedValues").divide(col("sumInverseDistances")))
+				.select("latitude", "longitude", "interpolated_value");
 
-        double interpolatedValue = interpolated.first().getDouble(2);
+		double interpolatedValue = interpolated.first().getDouble(2);
 
-        spark.stop();
-        return new Point(unknownPoint.getLatitude(), unknownPoint.getLongitude(), interpolatedValue);
+		spark.stop();
+		return new Point(unknownPoint.getLatitude(), unknownPoint.getLongitude(), interpolatedValue);
 	}
 }

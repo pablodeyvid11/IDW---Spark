@@ -3,3 +3,13 @@
 dataset.csv
 dataset.parquet
 dataset.txt
+
+.settings
+dataset_1gb.parquet
+point.csv
+
+.git
+.project
+convert.py
+dataset_1gb.csv
+dataset_1gb.txt
